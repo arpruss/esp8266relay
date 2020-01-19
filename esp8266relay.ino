@@ -5,6 +5,10 @@
 
 #define MAX_TRIES    3
 #define TRY_TIME     60000
+#define FONT_STYLE "style='font-size:6vw;'"
+#define FONT_START "<p " FONT_STYLE ">"
+#define VIEWPORT "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
+#define FONT_END "</p>"
 
 uint32 numTries = 0;
 uint32 lastTries[MAX_TRIES] = {0};
@@ -14,8 +18,8 @@ uint32 lastTries[MAX_TRIES] = {0};
 #define OPEN_TIME 333
 
 #define RELAY     D1
-#define RELAY_ON  1
-#define RELAY_OFF 0
+#define RELAY_ON  0
+#define RELAY_OFF 1
 
 #define LED 2
 #define LED_ON 0
@@ -56,6 +60,7 @@ void setup(void){
   /* MDNS.begin("garageRELAY"); */
 
   server.on("/", HTTP_GET, handleRoot);              
+  server.on("/RELAY", HTTP_GET, handleRoot);              
   server.on("/RELAY", HTTP_POST, handlePost);
   server.onNotFound(handleNotFound);
 
@@ -92,23 +97,25 @@ void openSesame(){
 }
 
 void handleRootWithPrefix(String prefix) {
-  String msg = "<html><title>Enter Code</title><body>";
+  String top = "<html>" VIEWPORT "<title>Enter Code</title>" VIEWPORT "<body onload='clickme()'>";
   String code = "";
   
   if (! checkTry()) {
     server.send(200, "text/html", 
-    "<html><title>Time Out</title><body>"
-    "Too many tries.<br/><a href='/'>Try again later.</a>"
+    "<html><title>Time Out</title>" VIEWPORT "<body>"
+    FONT_START "Too many tries.<br/><a href='/'>Try again later.</a>" FONT_END
     "</body></html");
     return;
   }
 
   server.send(200, "text/html", 
-  prefix + "<form action='/RELAY' method='post'>"
-  "<input type='number' name='code' value='" + code + "'/><br/>"
-  "<input type='submit' value='Submit'/><br/>"
+  top + prefix + "<form action='/RELAY' method='post'>"
+  FONT_START "<input " FONT_STYLE " type='number' size='6' name='code' id='code' value='" + code + "' autofocus /><br/>"
+  "<input " FONT_STYLE " type='submit' value='Submit'/><br/>" FONT_END
   "</form>"
-  "</body></html>");
+  "</body>"
+  "<script>function clickme() {var el = document.getElementById('code'); el.focus(); el.click(); el.dispatchEvent(new Event('touchstart')); }</script>" 
+  "</html>");
 }
 
 void handleRoot() {
@@ -126,15 +133,16 @@ void handlePost() {
     String code = server.arg(0);
     if (code == RELAY_PIN) {
       server.send(200, "text/html", 
-        "<html><title>Success</title><body>"
-        "Sesame opening.<br/><a href='/'>Try again.</a>"
+        "<html>" VIEWPORT "<title>Success</title><body>" 
+        FONT_START
+        "Sesame opening.<br/><a href='/'>Try again.</a>" FONT_END
         "</body></html>");
       openSesame();
       numTries = 0;
       return;
     }    
     else {
-      handleRootWithPrefix("<font color='red'>Incorrect entry.</font><br/>");
+      handleRootWithPrefix(FONT_START "<font color='red'>Incorrect entry.</font>" FONT_END);
     }
   }
 }
