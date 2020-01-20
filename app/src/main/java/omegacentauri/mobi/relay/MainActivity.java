@@ -2,6 +2,7 @@ package omegacentauri.mobi.relay;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
@@ -58,7 +59,7 @@ public class MainActivity extends Activity implements Callback {
 
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-                updateGo();
+                updateStatus();
                 resetTimer();
             }
 
@@ -83,7 +84,7 @@ public class MainActivity extends Activity implements Callback {
         resetTimer();
     }
 
-    private void updateGo() {
+    private void updateStatus() {
         final int state;
         if (code.getText().length() > 0 && getURL() != "" && !busy)
             state = View.VISIBLE;
@@ -121,7 +122,7 @@ public class MainActivity extends Activity implements Callback {
                     SharedPreferences.Editor ed = options.edit();
                     ed.putString("URL", text);
                     ed.commit();
-                    updateGo();
+                    updateStatus();
                 }
             }
         });
@@ -146,7 +147,12 @@ public class MainActivity extends Activity implements Callback {
         clearTask = new TimerTask() {
             @Override
             public void run() {
-                code.setText("");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        code.setText("");
+                    }
+                });
             }
         };
         clearTimer.schedule(clearTask, CODE_TIMEOUT);
@@ -158,7 +164,7 @@ public class MainActivity extends Activity implements Callback {
 
         status.setText("Ready...");
         code.setText("");
-        updateGo();
+        updateStatus();
         code.requestFocus();
         code.setImeActionLabel("Go!", KeyEvent.KEYCODE_ENTER);
 
@@ -179,13 +185,14 @@ public class MainActivity extends Activity implements Callback {
     }
 
     private boolean makePost() {
-        if (busy || code.getText().length() == 0)
+        if (busy || code.getText().length() == 0) {
             return false;
+        }
 
         resetTimer();
 
         busy = true;
-        updateGo();
+        updateStatus();
         status.setText("Working...");
 
         RequestBody requestBody = new MultipartBody.Builder()
@@ -204,26 +211,38 @@ public class MainActivity extends Activity implements Callback {
 
     @Override
     public void onFailure(Call call, IOException e) {
-        status.setText("Connection failed!");
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                status.setText("Connection failed!");
+            }
+        });
+        busy = false;
+        updateStatus();
     }
 
     @Override
     public void onResponse(Call call, Response response) throws IOException {
-        String out = response.body().string().toLowerCase();
-        if (out.contains("sesame opening"))
-            status.setText("Triggered!");
-        else if (out.contains("too many tries"))
-            status.setText("Failed too many times. Retry later.");
-        else if (out.contains("incorrect entry")) {
-            status.setText("Wrong code");
-            code.setText("");
-        }
-        else {
-            status.setText("Unknown response.");
-            Log.e("relay", out);
-        }
-        busy = false;
-        updateGo();
+        final String out = response.body().string().toLowerCase();
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (out.contains("sesame opening"))
+                    status.setText("Triggered!");
+                else if (out.contains("too many tries"))
+                    status.setText("Failed too many times. Retry later.");
+                else if (out.contains("incorrect entry")) {
+                    status.setText("Wrong code");
+                    code.setText("");
+                }
+                else {
+                    status.setText("Unknown response.");
+                    Log.e("relay", out);
+                }
+                busy = false;
+            }
+        });
+        updateStatus();
     }
 
     private class PostTask extends AsyncTask<String, String, String> {
