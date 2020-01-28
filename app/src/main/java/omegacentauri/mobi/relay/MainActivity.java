@@ -240,9 +240,9 @@ public class MainActivity extends Activity implements Callback {
                     Log.e("relay", out);
                 }
                 busy = false;
+                updateStatus();
             }
         });
-        updateStatus();
     }
 
     private class PostTask extends AsyncTask<String, String, String> {
