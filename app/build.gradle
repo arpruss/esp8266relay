@@ -3,12 +3,16 @@ apply plugin: 'com.android.application'
 android {
     compileSdkVersion 27
     defaultConfig {
-        applicationId "omegacentauri.mobi.relay"
+        applicationId "omegacentauri.mobi.relay2"
         minSdkVersion 4
         targetSdkVersion 27
         versionCode 1
         versionName "0.01"
     }
+        lintOptions {
+            warningsAsErrors false
+            abortOnError false
+        }
     buildTypes {
         release {
             minifyEnabled false
@@ -19,5 +23,5 @@ android {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    compile 'com.squareup.okhttp3:okhttp:3.10.0'
+    implementation 'com.squareup.okhttp3:okhttp:3.10.0'
 }

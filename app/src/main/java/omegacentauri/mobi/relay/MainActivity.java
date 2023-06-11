@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.text.Editable;
@@ -22,6 +23,9 @@ import java.io.IOException;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLSession;
+
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.MultipartBody;
@@ -34,7 +38,7 @@ public class MainActivity extends Activity implements Callback {
     private EditText code;
     private Button buttonGo;
     private TextView status;
-    private final OkHttpClient client = new OkHttpClient();
+    private final OkHttpClientUnverified client = new OkHttpClientUnverified();
     private static final int CODE_TIMEOUT = 60000;
     private Timer clearTimer;
     private TimerTask clearTask;
@@ -107,7 +111,9 @@ public class MainActivity extends Activity implements Callback {
     public void optionsButton(View view) {
         AlertDialog.Builder b = new AlertDialog.Builder(this);
         final EditText urlField = new EditText(this);
-        urlField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CUPCAKE) {
+            urlField.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        }
         String url = getURL();
         if (url == "")
             url = "http://000.000.000.000/RELAY";
@@ -166,7 +172,9 @@ public class MainActivity extends Activity implements Callback {
         code.setText("");
         updateStatus();
         code.requestFocus();
-        code.setImeActionLabel("Go!", KeyEvent.KEYCODE_ENTER);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.CUPCAKE) {
+            code.setImeActionLabel("Go!", KeyEvent.KEYCODE_ENTER);
+        }
 
         //InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         //imm.showSoftInput(code, InputMethodManager.SHOW_FORCED);
@@ -179,8 +187,8 @@ public class MainActivity extends Activity implements Callback {
             return url;
         if (! url.startsWith("http://") && ! url.startsWith("https://"))
             url = "http://" + url;
-        if (! url.contains("/RELAY"))
-            url = url + "/RELAY";
+        /*if (! url.contains("/RELAY"))
+            url = url + "/RELAY"; */
         return url;
     }
 
@@ -249,6 +257,20 @@ public class MainActivity extends Activity implements Callback {
         @Override
         protected String doInBackground(String... data) {
             return "";
+        }
+    }
+
+    private static class OkHttpClientUnverified extends OkHttpClient {
+        HostnameVerifier trivialVerifier =  new HostnameVerifier() {
+            @Override
+            public boolean verify(String s, SSLSession sslSession) {
+                return true;
+            }
+        };
+
+        @Override
+        public HostnameVerifier hostnameVerifier() {
+            return trivialVerifier;
         }
     }
 }
