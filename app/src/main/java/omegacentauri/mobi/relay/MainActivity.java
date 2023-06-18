@@ -20,11 +20,17 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -38,7 +44,43 @@ public class MainActivity extends Activity implements Callback {
     private EditText code;
     private Button buttonGo;
     private TextView status;
-    private final OkHttpClientUnverified client = new OkHttpClientUnverified();
+    private OkHttpClient client;
+
+    static private OkHttpClient InsecureOkHttpClient() throws NoSuchAlgorithmException, KeyManagementException {
+        final TrustManager[] trustAllCerts = new TrustManager[] {
+                new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) {
+                    }
+
+                    @Override
+                    public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                        return new java.security.cert.X509Certificate[]{};
+                    }
+                }
+        };
+
+        // Install the all-trusting trust manager
+        final SSLContext sslContext = SSLContext.getInstance("SSL");
+        sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+        // Create an ssl socket factory with our all-trusting manager
+        final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+
+        OkHttpClient.Builder builder = new OkHttpClient.Builder();
+        builder.sslSocketFactory(sslSocketFactory, (X509TrustManager)trustAllCerts[0]);
+        builder.hostnameVerifier(new HostnameVerifier() {
+            @Override
+            public boolean verify(String hostname, SSLSession session) {
+                return true;
+            }
+        });
+        return builder.build();
+    }
+
     private static final int CODE_TIMEOUT = 60000;
     private Timer clearTimer;
     private TimerTask clearTask;
@@ -48,6 +90,15 @@ public class MainActivity extends Activity implements Callback {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        try {
+            client = InsecureOkHttpClient();
+        } catch (NoSuchAlgorithmException e) {
+            client = null;
+        } catch (KeyManagementException e) {
+            e.printStackTrace();
+        }
+
         setContentView(R.layout.main);
         status = (TextView)findViewById(R.id.status);
         code = (EditText)findViewById(R.id.code);
@@ -117,6 +168,7 @@ public class MainActivity extends Activity implements Callback {
         String url = getURL();
         if (url == "")
             url = "http://000.000.000.000/RELAY";
+        url = ""; // TODO: be smarter
         urlField.setText(url);
         b.setView(urlField);
         b.setPositiveButton("OK", new DialogInterface.OnClickListener() {
@@ -124,7 +176,7 @@ public class MainActivity extends Activity implements Callback {
             public void onClick(DialogInterface dialogInterface, int i) {
                 String text = String.valueOf(urlField.getText());
                 if (text.length()>0) {
-                    Log.v("relay", "setting to "+text);
+//                    Log.v("relay", "setting to "+text);
                     SharedPreferences.Editor ed = options.edit();
                     ed.putString("URL", text);
                     ed.commit();
@@ -213,7 +265,10 @@ public class MainActivity extends Activity implements Callback {
                 .post(requestBody)
                 .build();
 
-        client.newCall(request).enqueue(this);
+        if (client != null)
+            client.newCall(request).enqueue(this);
+        else
+            onFailure(null, null);
         return true;
     }
 
@@ -222,6 +277,7 @@ public class MainActivity extends Activity implements Callback {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+//                Log.v("relay", "exception "+e);
                 status.setText("Connection failed!");
             }
         });
@@ -260,17 +316,4 @@ public class MainActivity extends Activity implements Callback {
         }
     }
 
-    private static class OkHttpClientUnverified extends OkHttpClient {
-        HostnameVerifier trivialVerifier =  new HostnameVerifier() {
-            @Override
-            public boolean verify(String s, SSLSession sslSession) {
-                return true;
-            }
-        };
-
-        @Override
-        public HostnameVerifier hostnameVerifier() {
-            return trivialVerifier;
-        }
-    }
 }
